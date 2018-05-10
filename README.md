@@ -1,0 +1,2 @@
+# tidl
+Golang Tidal downloader
