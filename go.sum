@@ -1,0 +1,13 @@
+github.com/go-audio/audio v0.0.0-20180206231410-b697a35b5608/go.mod h1:6uAu0+H2lHkwdGsAY+j2wHPNPpPoeg5AaEFh9FlA+Zs=
+github.com/go-audio/wav v0.0.0-20180801233548-87c13ac40f03/go.mod h1:7Yks5lSvciOdNmfv+bndELyGXQSTxT3yVA3dsbk/sCE=
+github.com/icza/bitio v0.0.0-20180221120200-b25b30b42508 h1:2LdkN1icT8cEFyB95fUbPE0TmQL9ZOjUv9MNJ1kg3XE=
+github.com/icza/bitio v0.0.0-20180221120200-b25b30b42508/go.mod h1:1+iKpsBoI5fsqBTrjxjM81vidVQcxXCmDrM9vc6EU2w=
+github.com/icza/mighty v0.0.0-20180222163138-6304d21ca645/go.mod h1:xQig96I1VNBDIWGCdTt54nHt6EeI639SmHycLYL7FkA=
+github.com/mattetti/audio v0.0.0-20180403010354-b7bc1ebaf222/go.mod h1:LlQmBGkOuV/SKzEDXBPKauvN2UqCgzXO2XjecTGj40s=
+github.com/mewkiz/flac v1.0.5-0.20180818192143-4309906bb81e h1:HMo4ffYS2rDFz4ycOwpd1/XtlKVDa3/QPTzdmbQ7OrY=
+github.com/mewkiz/flac v1.0.5-0.20180818192143-4309906bb81e/go.mod h1:Vntr7u5XY330B29aQ8joFNjPANHgiXpqIjC/ENnoQvA=
+github.com/mewkiz/flac v1.0.5 h1:dHGW/2kf+/KZ2GGqSVayNEhL9pluKn/rr/h/QqD9Ogc=
+github.com/mewkiz/flac v1.0.5/go.mod h1:EHZNU32dMF6alpurYyKHDLYpW1lYpBZ5WrXi/VuNIGs=
+github.com/mewkiz/pkg v0.0.0-20170428133157-c19a6f9fa6f8 h1:XD0Q2+yCxlxdphDVQzvXARXSc6c75BDobJErKnsqkdw=
+github.com/mewkiz/pkg v0.0.0-20170428133157-c19a6f9fa6f8/go.mod h1:bhmdGJSMX5WCIBFmk27tBnUvBJm5WxXmarBV41qvbNI=
+github.com/pkg/errors v0.8.0/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
