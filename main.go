@@ -2,7 +2,9 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,7 +17,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/mewkiz/flac"
+	"github.com/icza/bitio"
+	flac "github.com/mewkiz/flac"
 	"github.com/mewkiz/flac/meta"
 )
 
@@ -45,10 +48,9 @@ type Tidal struct {
 
 // Artist struct
 type Artist struct {
-	ID         json.Number `json:"id"`
-	Name       string      `json:"name"`
-	Type       string      `json:"type"`
-	Popularity int         `json:"popularity,omitempty"`
+	ID   json.Number `json:"id"`
+	Name string      `json:"name"`
+	Type string      `json:"type"`
 }
 
 // Album struct
@@ -66,6 +68,7 @@ type Album struct {
 	Popularity           float64     `json:"popularity,omitempty"`
 	Artist               Artist      `json:"artist"`
 	Cover                string      `json:"cover"`
+	artBody              []byte
 }
 
 // Track struct
@@ -266,12 +269,12 @@ func (t *Tidal) DownloadAlbum(al Album) {
 	dirs := clean(al.Artists[0].Name) + "/" + clean(al.Title)
 	os.MkdirAll(dirs, os.ModePerm)
 
-	meta, err := json.MarshalIndent(al, "", "\t")
+	metadata, err := json.MarshalIndent(al, "", "\t")
 	if err != nil {
 		panic(err)
 	}
 
-	err = ioutil.WriteFile(dirs+"/meta.json", meta, 0777)
+	err = ioutil.WriteFile(dirs+"/meta.json", metadata, 0777)
 	if err != nil {
 		panic(err)
 	}
@@ -280,6 +283,9 @@ func (t *Tidal) DownloadAlbum(al Album) {
 	if err != nil {
 		panic(err)
 	}
+
+	al.artBody = body
+	t.albumMap[al.ID.String()] = al
 
 	err = ioutil.WriteFile(dirs+"/album.jpg", body, 0777)
 	if err != nil {
@@ -296,6 +302,8 @@ func (t *Tidal) DownloadAlbum(al Album) {
 func (t *Tidal) DownloadTrack(tr Track) {
 	// TODO(ts): improve ID3
 	al := t.albumMap[tr.Album.ID.String()]
+	tr.Album = al
+
 	dirs := clean(al.Artist.Name) + "/" + clean(al.Title)
 	path := dirs + "/" + clean(tr.Artist.Name) + " - " + clean(tr.Title)
 
@@ -370,6 +378,25 @@ func enc(src string, tr Track) error {
 		return err
 	}
 
+	// https://xiph.org/flac/format.html#metadata_block_picture
+	MIMETYPE := "image/jpeg"
+	pictureData := &bytes.Buffer{}
+	w := bitio.NewWriter(pictureData)
+	w.WriteBits(uint64(3), 32)                     // picture type (3)
+	w.WriteBits(uint64(len(MIMETYPE)), 32)         // length of "image/jpeg"
+	w.Write([]byte(MIMETYPE))                      // "image/jpeg"
+	w.WriteBits(uint64(0), 32)                     // description length (0)
+	w.Write([]byte{})                              // description
+	w.WriteBits(uint64(1280), 32)                  // width (1280)
+	w.WriteBits(uint64(1280), 32)                  // height (1280)
+	w.WriteBits(uint64(24), 32)                    // colour depth (24)
+	w.WriteBits(uint64(0), 32)                     // is pal? (0)
+	w.WriteBits(uint64(len(tr.Album.artBody)), 32) // length of content
+	w.Write(tr.Album.artBody)                      // actual content
+	w.Close()
+
+	encodedPictureData := base64.StdEncoding.EncodeToString(pictureData.Bytes())
+
 	// Add custom vorbis comment.
 	for _, block := range stream.Blocks {
 		if comment, ok := block.Body.(*meta.VorbisComment); ok {
@@ -380,6 +407,7 @@ func enc(src string, tr Track) error {
 			comment.Tags = append(comment.Tags, [2]string{"ARTIST", tr.Artist.Name})
 			comment.Tags = append(comment.Tags, [2]string{"ALBUMARTIST", tr.Album.Artist.Name})
 			comment.Tags = append(comment.Tags, [2]string{"COPYRIGHT", tr.Copyright})
+			comment.Tags = append(comment.Tags, [2]string{"METADATA_BLOCK_PICTURE", encodedPictureData})
 		}
 	}
 
