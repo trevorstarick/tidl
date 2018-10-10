@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/cookiejar"
@@ -27,6 +29,7 @@ const (
 )
 
 var username, password string
+
 var cookieJar, _ = cookiejar.New(nil)
 var c = &http.Client{
 	Jar: cookieJar,
@@ -263,7 +266,6 @@ func (t *Tidal) DownloadAlbum(al Album) {
 	dirs := clean(al.Artists[0].Name) + "/" + clean(al.Title)
 	os.MkdirAll(dirs, os.ModePerm)
 
-	for _, track := range tracks {
 	meta, err := json.MarshalIndent(al, "", "\t")
 	if err != nil {
 		panic(err)
