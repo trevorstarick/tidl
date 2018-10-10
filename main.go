@@ -238,6 +238,15 @@ func (t *Tidal) GetArtistAlbums(artist string, l int) ([]Album, error) {
 	return s.Items, nil
 }
 
+func (al *Album) GetArt() ([]byte, error) {
+	u := "https://resources.tidal.com/images/" + strings.Replace(al.Cover, "-", "/", -1) + "/1280x1280.jpg"
+	res, err := http.Get(u)
+	if err != nil {
+		return nil, err
+	}
+
+	defer res.Body.Close()
+	return ioutil.ReadAll(res.Body)
 }
 
 func (t *Tidal) DownloadAlbum(al Album) {
