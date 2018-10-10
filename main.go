@@ -21,6 +21,7 @@ const baseurl = "https://api.tidalhifi.com/v1/"
 const clientVersion = "1.9.1"
 const token = "kgsOOmYk3zShYrNP"
 
+var username, password string
 var cookieJar, _ = cookiejar.New(nil)
 var c = &http.Client{
 	Jar: cookieJar,
@@ -287,7 +288,7 @@ func main() {
 		return
 	}
 
-	t, err := New("username", "password")
+	t, err := New(username, password)
 	if err != nil {
 		panic(err)
 	}
