@@ -13,7 +13,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/mewkiz/flac"
 	"github.com/mewkiz/flac/meta"
 )
@@ -79,7 +78,7 @@ type Search struct {
 }
 
 func (t *Tidal) get(dest string, query *url.Values, s interface{}) error {
-	log.Println(baseurl + dest)
+	// log.Println(baseurl + dest)
 	req, err := http.NewRequest("GET", baseurl+dest, nil)
 	if err != nil {
 		return err
@@ -101,7 +100,7 @@ func (t *Tidal) CheckSession() (bool, error) {
 	//return False
 	var out interface{}
 	err := t.get(fmt.Sprintf("users/%s/subscription", t.UserID), nil, &out)
-	fmt.Println(out)
+	// fmt.Println(out)
 	return true, err
 }
 
@@ -293,11 +292,10 @@ func main() {
 		panic(err)
 	}
 
-	spew.Dump(t)
+	// spew.Dump(t)
 
 	for _, id := range os.Args[1:] {
 		album, err := t.GetAlbum(id)
-		spew.Dump(album)
 		if err != nil {
 			panic(err)
 		}
