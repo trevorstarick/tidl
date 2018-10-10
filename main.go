@@ -292,9 +292,10 @@ func (t *Tidal) DownloadAlbum(al Album) {
 }
 
 func (t *Tidal) DownloadTrack(tr Track) {
-	dirs := clean(tr.Artists[0].Name) + "/" + clean(tr.Album.Title)
-	path := dirs + "/" + clean(tr.Artists[0].Name) + " - " + clean(tr.Title)
+	// TODO(ts): improve ID3
 	al := t.albumMap[tr.Album.ID.String()]
+	dirs := clean(al.Artist.Name) + "/" + clean(al.Title)
+	path := dirs + "/" + clean(tr.Artist.Name) + " - " + clean(tr.Title)
 
 	os.MkdirAll(dirs, os.ModePerm)
 	f, err := os.Create(path)
