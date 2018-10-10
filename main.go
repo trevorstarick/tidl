@@ -273,6 +273,16 @@ func (t *Tidal) DownloadAlbum(al Album) {
 	if err != nil {
 		panic(err)
 	}
+
+	body, err := al.GetArt()
+	if err != nil {
+		panic(err)
+	}
+
+	err = ioutil.WriteFile(dirs+"/album.jpg", body, 0777)
+	if err != nil {
+		panic(err)
+	}
 		t.DownloadTrack(track)
 	}
 }
