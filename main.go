@@ -21,6 +21,11 @@ const baseurl = "https://api.tidalhifi.com/v1/"
 const clientVersion = "1.9.1"
 const token = "kgsOOmYk3zShYrNP"
 
+const (
+	AQ_LOSSLESS int = iota
+	AQ_HI_RES
+)
+
 var username, password string
 var cookieJar, _ = cookiejar.New(nil)
 var c = &http.Client{
