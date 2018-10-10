@@ -295,6 +295,8 @@ func enc(src string, tr Track) error {
 }
 
 func main() {
+	// TODO(ts): handle output better
+	// TODO(ts): handle no input
 	if len(os.Args) == 1 {
 		return
 	}
@@ -323,10 +325,49 @@ func main() {
 	// spew.Dump(t)
 
 	for _, id := range ids {
+		// TODO(ts): support fetching of EP/Singles as well as flags to disable
+		// TODO(ts): support fetching of artist info
+		albums, err := t.GetArtistAlbums(ids[0], 1)
 		if err != nil {
 			panic(err)
 		}
 
-		t.DownloadAlbum(album)
+		if len(albums) == 0 {
+			album, err := t.GetAlbum(id)
+			if err != nil {
+				panic(err)
+			}
+
+			albums = []Album{album}
+		}
+
+		albumMap := make(map[string]Album)
+		for _, album := range albums {
+			if _, ok := albumMap[album.Title]; !ok {
+				albumMap[album.Title] = album
+			} else {
+				// TODO(ts): impove dedupe if statement
+
+				if album.AudioQuality == "LOSSLESS" && albumMap[album.Title].AudioQuality != "LOSSLESS" {
+					// if higher quality
+					albumMap[album.Title] = album
+				} else if album.Explicit && !albumMap[album.Title].Explicit {
+					// if explicit
+					albumMap[album.Title] = album
+				} else if album.Popularity > albumMap[album.Title].Popularity {
+					// if more popular
+					albumMap[album.Title] = album
+				}
+			}
+		}
+
+		albums = make([]Album, 0, len(albumMap))
+		for _, album := range albumMap {
+			albums = append(albums, album)
+		}
+
+		for _, album := range albums {
+			t.DownloadAlbum(album)
+		}
 	}
 }
