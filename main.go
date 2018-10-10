@@ -299,6 +299,22 @@ func main() {
 		return
 	}
 
+	var ids []string
+
+	if _, err := os.Stat(os.Args[1]); !os.IsNotExist(err) {
+		f, err := os.Open(os.Args[1])
+		if err != nil {
+			panic(err)
+		}
+
+		buffer := bufio.NewScanner(f)
+		for buffer.Scan() {
+			ids = append(ids, buffer.Text())
+		}
+	} else {
+		ids = os.Args[1:]
+	}
+
 	t, err := New(username, password)
 	if err != nil {
 		panic(err)
@@ -306,8 +322,7 @@ func main() {
 
 	// spew.Dump(t)
 
-	for _, id := range os.Args[1:] {
-		album, err := t.GetAlbum(id)
+	for _, id := range ids {
 		if err != nil {
 			panic(err)
 		}
