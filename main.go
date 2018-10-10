@@ -38,30 +38,40 @@ type Tidal struct {
 type Artist struct {
 	ID         json.Number `json:"id"`
 	Name       string      `json:"name"`
-	Popularity int         `json:"popularity"`
+	Type       string      `json:"type"`
+	Popularity int         `json:"popularity,omitempty"`
 }
 
 // Album struct
 type Album struct {
-	Artists        []Artist    `json:"artists,omitempty"`
-	Title          string      `json:"title"`
-	ID             json.Number `json:"id"`
-	NumberOfTracks json.Number `json:"numberOfTracks"`
-	Explicit       bool        `json:"explicit,omitempty"`
-	Copyright      string      `json:"copyright,omitempty"`
+	Artists              []Artist    `json:"artists,omitempty"`
+	Title                string      `json:"title"`
+	ID                   json.Number `json:"id"`
+	NumberOfTracks       json.Number `json:"numberOfTracks"`
+	Explicit             bool        `json:"explicit,omitempty"`
+	Copyright            string      `json:"copyright,omitempty"`
+	AudioQuality         string      `json:"audioQuality"`
+	ReleaseDate          string      `json:"releaseDate"`
+	Duration             float64     `json:"duration"`
+	PremiumStreamingOnly bool        `json:"premiumStreamingOnly"`
+	Popularity           float64     `json:"popularity,omitempty"`
+	Artist               Artist      `json:"artist"`
+	Cover                string      `json:"cover"`
 }
 
 // Track struct
 type Track struct {
-	Artists     []Artist    `json:"artists"`
-	Album       Album       `json:"album"`
-	Title       string      `json:"title"`
-	ID          json.Number `json:"id"`
-	Explicit    bool        `json:"explicit"`
-	Copyright   string      `json:"copyright"`
-	Popularity  int         `json:"popularity"`
-	TrackNumber json.Number `json:"trackNumber"`
-	Duration    json.Number `json:"duration"`
+	Artists      []Artist    `json:"artists"`
+	Artist       Artist      `json:"artist"`
+	Album        Album       `json:"album"`
+	Title        string      `json:"title"`
+	ID           json.Number `json:"id"`
+	Explicit     bool        `json:"explicit"`
+	Copyright    string      `json:"copyright"`
+	Popularity   int         `json:"popularity"`
+	TrackNumber  json.Number `json:"trackNumber"`
+	Duration     json.Number `json:"duration"`
+	AudioQuality string      `json:"audioQuality"`
 }
 
 // Search struct
