@@ -222,7 +222,7 @@ func (t *Tidal) DownloadTrack(tr Track) {
 	res.Body.Close()
 	f.Close()
 
-	err = enc(path, tr.Title, tr.Artists[0].Name, tr.Album.Title, tr.TrackNumber.String())
+	err = enc(dirs, tr)
 	if err != nil {
 		panic(err)
 	}
@@ -264,9 +264,10 @@ func clean(s string) string {
 	return strings.Replace(s, "/", "\u2215", -1)
 }
 
-func enc(src, title, artist, album, num string) error {
+func enc(src string, tr Track) error {
 	// Decode FLAC file.
-	stream, err := flac.ParseFile(src)
+	path := src + "/" + clean(tr.Artist.Name) + " - " + clean(tr.Title)
+	stream, err := flac.ParseFile(path)
 	if err != nil {
 		return err
 	}
@@ -274,16 +275,16 @@ func enc(src, title, artist, album, num string) error {
 	// Add custom vorbis comment.
 	for _, block := range stream.Blocks {
 		if comment, ok := block.Body.(*meta.VorbisComment); ok {
-			comment.Tags = append(comment.Tags, [2]string{"TITLE", title})
-			comment.Tags = append(comment.Tags, [2]string{"ARTIST", artist})
-			comment.Tags = append(comment.Tags, [2]string{"ALBUMARTIST", artist})
-			comment.Tags = append(comment.Tags, [2]string{"ALBUM", album})
-			comment.Tags = append(comment.Tags, [2]string{"TRACKNUMBER", num})
+			comment.Tags = append(comment.Tags, [2]string{"TITLE", tr.Title})
+			comment.Tags = append(comment.Tags, [2]string{"ALBUM", tr.Album.Title})
+			comment.Tags = append(comment.Tags, [2]string{"TRACKNUMBER", tr.TrackNumber.String()})
+			comment.Tags = append(comment.Tags, [2]string{"ARTIST", tr.Artist.Name})
+			comment.Tags = append(comment.Tags, [2]string{"COPYRIGHT", tr.Copyright})
 		}
 	}
 
 	// Encode FLAC file.
-	f, err := os.Create(src + ".flac")
+	f, err := os.Create(path + ".flac")
 	if err != nil {
 		return err
 	}
