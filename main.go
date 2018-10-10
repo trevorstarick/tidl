@@ -264,6 +264,15 @@ func (t *Tidal) DownloadAlbum(al Album) {
 	os.MkdirAll(dirs, os.ModePerm)
 
 	for _, track := range tracks {
+	meta, err := json.MarshalIndent(al, "", "\t")
+	if err != nil {
+		panic(err)
+	}
+
+	err = ioutil.WriteFile(dirs+"/meta.json", meta, 0777)
+	if err != nil {
+		panic(err)
+	}
 		t.DownloadTrack(track)
 	}
 }
