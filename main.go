@@ -150,10 +150,16 @@ func (t *Tidal) GetPlaylistTracks(id string) ([]Track, error) {
 // SearchTracks func
 func (t *Tidal) SearchTracks(d string, l int) ([]Track, error) {
 	var s Search
+	var limit string
+
+	if l > 0 {
+		limit = strconv.Itoa(l)
+	}
+
 	return s.Tracks.Items, t.get("search", &url.Values{
 		"query": {d},
 		"types": {"TRACKS"},
-		"limit": {strconv.Itoa(l)},
+		"limit": {limit},
 	}, &s)
 }
 
@@ -161,19 +167,30 @@ func (t *Tidal) SearchTracks(d string, l int) ([]Track, error) {
 func (t *Tidal) SearchAlbums(d string, l int) ([]Album, error) {
 	var s Search
 	return s.Albums.Items, t.get("search", &url.Values{
+	var limit string
+
+	if l > 0 {
+		limit = strconv.Itoa(l)
+	}
 		"query": {d},
 		"types": {"ALBUMS"},
-		"limit": {strconv.Itoa(l)},
+		"limit": {limit},
 	}, &s)
 }
 
 // SearchArtists func
 func (t *Tidal) SearchArtists(d string, l int) ([]Artist, error) {
 	var s Search
+	var limit string
+
+	if l > 0 {
+		limit = strconv.Itoa(l)
+	}
+
 	return s.Artists.Items, t.get("search", &url.Values{
 		"query": {d},
 		"types": {"ARTISTS"},
-		"limit": {strconv.Itoa(l)},
+		"limit": {limit},
 	}, &s)
 }
 
@@ -182,6 +199,12 @@ func (t *Tidal) GetArtistAlbums(artist string, l int) ([]Album, error) {
 	var s Search
 	return s.Items, t.get(fmt.Sprintf("artists/%s/albums", artist), &url.Values{
 		"limit": {strconv.Itoa(l)},
+	var limit string
+
+	if l > 0 {
+		limit = strconv.Itoa(l)
+	}
+		"limit": {limit},
 	}, &s)
 }
 
