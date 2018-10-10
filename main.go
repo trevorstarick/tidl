@@ -362,6 +362,7 @@ func clean(s string) string {
 }
 
 func enc(src string, tr Track) error {
+	// https://wiki.hydrogenaud.io/index.php?title=Tag_Mapping#Titles
 	// Decode FLAC file.
 	path := src + "/" + clean(tr.Artist.Name) + " - " + clean(tr.Title)
 	stream, err := flac.ParseFile(path)
@@ -375,7 +376,9 @@ func enc(src string, tr Track) error {
 			comment.Tags = append(comment.Tags, [2]string{"TITLE", tr.Title})
 			comment.Tags = append(comment.Tags, [2]string{"ALBUM", tr.Album.Title})
 			comment.Tags = append(comment.Tags, [2]string{"TRACKNUMBER", tr.TrackNumber.String()})
+			comment.Tags = append(comment.Tags, [2]string{"TRACKTOTAL", tr.Album.NumberOfTracks.String()})
 			comment.Tags = append(comment.Tags, [2]string{"ARTIST", tr.Artist.Name})
+			comment.Tags = append(comment.Tags, [2]string{"ALBUMARTIST", tr.Album.Artist.Name})
 			comment.Tags = append(comment.Tags, [2]string{"COPYRIGHT", tr.Copyright})
 		}
 	}
@@ -424,7 +427,7 @@ func main() {
 	for _, id := range ids {
 		// TODO(ts): support fetching of EP/Singles as well as flags to disable
 		// TODO(ts): support fetching of artist info
-		albums, err := t.GetArtistAlbums(ids[0], 1)
+		albums, err := t.GetArtistAlbums(ids[0], 0)
 		if err != nil {
 			panic(err)
 		}
