@@ -283,6 +283,10 @@ func (t *Tidal) DownloadAlbum(al Album) {
 	if err != nil {
 		panic(err)
 	}
+
+	fmt.Printf("[%v] %v\n", al.ID.String(), al.Title)
+	for i, track := range tracks {
+		fmt.Printf("\t [%v/%v] %v\n", i+1, len(tracks), track.Title)
 		t.DownloadTrack(track)
 	}
 }
