@@ -29,6 +29,7 @@ var c = &http.Client{
 
 // Tidal api struct
 type Tidal struct {
+	albumMap    map[string]Album
 	SessionID   string      `json:"sessionID"`
 	CountryCode string      `json:"countryCode"`
 	UserID      json.Number `json:"userId"`
@@ -128,7 +129,15 @@ func (t *Tidal) GetStreamURL(id, q string) (string, error) {
 
 func (t *Tidal) GetAlbum(id string) (Album, error) {
 	var s Album
-	return s, t.get("albums/"+id, &url.Values{}, &s)
+
+	if album, ok := t.albumMap[id]; ok {
+		return album, nil
+	}
+
+	err := t.get("albums/"+id, &url.Values{}, &s)
+	t.albumMap[id] = s
+
+	return s, err
 }
 
 // GetAlbumTracks func
@@ -166,16 +175,27 @@ func (t *Tidal) SearchTracks(d string, l int) ([]Track, error) {
 // SearchAlbums func
 func (t *Tidal) SearchAlbums(d string, l int) ([]Album, error) {
 	var s Search
-	return s.Albums.Items, t.get("search", &url.Values{
 	var limit string
 
 	if l > 0 {
 		limit = strconv.Itoa(l)
 	}
+
+	err := t.get("search", &url.Values{
 		"query": {d},
 		"types": {"ALBUMS"},
 		"limit": {limit},
 	}, &s)
+
+	if err != nil {
+		return s.Albums.Items, err
+	}
+
+	for _, album := range s.Albums.Items {
+		t.albumMap[album.ID.String()] = album
+	}
+
+	return s.Albums.Items, nil
 }
 
 // SearchArtists func
@@ -194,18 +214,30 @@ func (t *Tidal) SearchArtists(d string, l int) ([]Artist, error) {
 	}, &s)
 }
 
-// SearchArtists func
+// GetArtistAlbums func
 func (t *Tidal) GetArtistAlbums(artist string, l int) ([]Album, error) {
 	var s Search
-	return s.Items, t.get(fmt.Sprintf("artists/%s/albums", artist), &url.Values{
-		"limit": {strconv.Itoa(l)},
 	var limit string
 
 	if l > 0 {
 		limit = strconv.Itoa(l)
 	}
+
+	err := t.get(fmt.Sprintf("artists/%s/albums", artist), &url.Values{
 		"limit": {limit},
 	}, &s)
+
+	if err != nil {
+		return s.Items, err
+	}
+
+	for _, album := range s.Items {
+		t.albumMap[album.ID.String()] = album
+	}
+
+	return s.Items, nil
+}
+
 }
 
 func (t *Tidal) DownloadAlbum(al Album) {
@@ -225,6 +257,7 @@ func (t *Tidal) DownloadAlbum(al Album) {
 func (t *Tidal) DownloadTrack(tr Track) {
 	dirs := clean(tr.Artists[0].Name) + "/" + clean(tr.Album.Title)
 	path := dirs + "/" + clean(tr.Artists[0].Name) + " - " + clean(tr.Title)
+	al := t.albumMap[tr.Album.ID.String()]
 
 	os.MkdirAll(dirs, os.ModePerm)
 	f, err := os.Create(path)
@@ -280,6 +313,7 @@ func New(user, pass string) (*Tidal, error) {
 
 	defer res.Body.Close()
 	var t Tidal
+	t.albumMap = make(map[string]Album)
 	return &t, json.NewDecoder(res.Body).Decode(&t)
 }
 
