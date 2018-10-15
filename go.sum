@@ -1,3 +1,5 @@
+github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
+github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/go-audio/audio v0.0.0-20180206231410-b697a35b5608/go.mod h1:6uAu0+H2lHkwdGsAY+j2wHPNPpPoeg5AaEFh9FlA+Zs=
 github.com/go-audio/wav v0.0.0-20180801233548-87c13ac40f03/go.mod h1:7Yks5lSvciOdNmfv+bndELyGXQSTxT3yVA3dsbk/sCE=
 github.com/icza/bitio v0.0.0-20180221120200-b25b30b42508 h1:2LdkN1icT8cEFyB95fUbPE0TmQL9ZOjUv9MNJ1kg3XE=

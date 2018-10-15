@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -17,8 +16,10 @@ import (
 	"strconv"
 	"strings"
 
+	// TODO(ts): look at replacing bitio
+
 	"github.com/icza/bitio"
-	flac "github.com/mewkiz/flac"
+	"github.com/mewkiz/flac"
 	"github.com/mewkiz/flac/meta"
 )
 
@@ -225,6 +226,12 @@ func (t *Tidal) SearchArtists(d string, l int) ([]Artist, error) {
 	}, &s)
 }
 
+func (t *Tidal) GetArtist(artist string) (Artist, error) {
+	var s Artist
+	err := t.get(fmt.Sprintf("artists/%s", artist), &url.Values{}, &s)
+	return s, err
+}
+
 // GetArtistAlbums func
 func (t *Tidal) GetArtistAlbums(artist string, l int) ([]Album, error) {
 	var s Search
@@ -236,6 +243,30 @@ func (t *Tidal) GetArtistAlbums(artist string, l int) ([]Album, error) {
 
 	err := t.get(fmt.Sprintf("artists/%s/albums", artist), &url.Values{
 		"limit": {limit},
+	}, &s)
+
+	if err != nil {
+		return s.Items, err
+	}
+
+	for _, album := range s.Items {
+		t.albumMap[album.ID.String()] = album
+	}
+
+	return s.Items, nil
+}
+
+func (t *Tidal) GetArtistEP(artist string, l int) ([]Album, error) {
+	var s Search
+	var limit string
+
+	if l > 0 {
+		limit = strconv.Itoa(l)
+	}
+
+	err := t.get(fmt.Sprintf("artists/%s/albums", artist), &url.Values{
+		"limit":  {limit},
+		"filter": {"EPSANDSINGLES"},
 	}, &s)
 
 	if err != nil {
@@ -292,7 +323,6 @@ func (t *Tidal) DownloadAlbum(al Album) {
 		panic(err)
 	}
 
-	fmt.Printf("[%v] %v\n", al.ID.String(), al.Title)
 	for i, track := range tracks {
 		fmt.Printf("\t [%v/%v] %v\n", i+1, len(tracks), track.Title)
 		t.DownloadTrack(track)
@@ -305,32 +335,35 @@ func (t *Tidal) DownloadTrack(tr Track) {
 	tr.Album = al
 
 	dirs := clean(al.Artist.Name) + "/" + clean(al.Title)
-	path := dirs + "/" + clean(tr.Artist.Name) + " - " + clean(tr.Title)
-
 	os.MkdirAll(dirs, os.ModePerm)
-	f, err := os.Create(path)
-	if err != nil {
-		log.Fatal(err)
-	}
 
 	u, err := t.GetStreamURL(tr.ID.String(), "LOSSLESS")
 	if err != nil {
-		log.Fatal(err)
-	}
-	res, err := http.Get(u)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	io.Copy(f, res.Body)
-	res.Body.Close()
-	f.Close()
-
-	err = enc(dirs, tr)
-	if err != nil {
 		panic(err)
 	}
-	os.Remove(path)
+
+	if u != "" {
+		path := dirs + "/" + clean(tr.Artist.Name) + " - " + clean(tr.Title)
+		f, err := os.Create(path)
+		if err != nil {
+			panic(err)
+		}
+
+		res, err := http.Get(u)
+		if err != nil {
+			panic(err)
+		}
+
+		io.Copy(f, res.Body)
+		res.Body.Close()
+		f.Close()
+
+		err = enc(dirs, tr)
+		if err != nil {
+			panic(err)
+		}
+		os.Remove(path)
+	}
 }
 
 // helper function to generate a uuid
@@ -423,6 +456,8 @@ func enc(src string, tr Track) error {
 }
 
 func main() {
+	var err error
+
 	// TODO(ts): handle output better
 	// TODO(ts): handle no input
 	if len(os.Args) == 1 {
@@ -431,7 +466,7 @@ func main() {
 
 	var ids []string
 
-	if _, err := os.Stat(os.Args[1]); !os.IsNotExist(err) {
+	if _, err = os.Stat(os.Args[1]); !os.IsNotExist(err) {
 		f, err := os.Open(os.Args[1])
 		if err != nil {
 			panic(err)
@@ -453,14 +488,30 @@ func main() {
 	// spew.Dump(t)
 
 	for _, id := range ids {
+		var albums []Album
 		// TODO(ts): support fetching of EP/Singles as well as flags to disable
 		// TODO(ts): support fetching of artist info
-		albums, err := t.GetArtistAlbums(ids[0], 0)
+		artist, err := t.GetArtist(id)
 		if err != nil {
 			panic(err)
 		}
 
-		if len(albums) == 0 {
+		if artist.ID.String() != "" {
+			fmt.Printf("Downloading %v (%v)...\n", artist.Name, artist.ID)
+			lbums, err := t.GetArtistAlbums(id, 0)
+			if err != nil {
+				panic(err)
+			}
+
+			albums = append(albums, lbums...)
+
+			lbums, err = t.GetArtistEP(id, 0)
+			if err != nil {
+				panic(err)
+			}
+
+			albums = append(albums, lbums...)
+		} else {
 			album, err := t.GetAlbum(id)
 			if err != nil {
 				panic(err)
@@ -495,7 +546,33 @@ func main() {
 		}
 
 		for _, album := range albums {
+			fmt.Printf("[%v] %v\n", album.ID.String(), album.Title)
 			t.DownloadAlbum(album)
+			// 	tracks, err := t.GetAlbumTracks(album.ID.String())
+			// 	if err != nil {
+			// 		panic(err)
+			// 	}
+
+			// 	processQueue := make(chan Track, len(tracks))
+			// 	for _, track := range tracks {
+			// 		processQueue <- track
+			// 	}
+			// 	close(processQueue)
+
+			// 	wg := sync.WaitGroup{}
+
+			// 	for i := 0; i < 8; i++ {
+			// 		wg.Add(1)
+			// 		go func() {
+			// 			for track := range processQueue {
+			// 				t.DownloadTrack(track)
+			// 				fmt.Printf("\t%v\n", track.Title)
+			// 			}
+			// 			wg.Done()
+			// 		}()
+			// 	}
+
+			// 	wg.Wait()
 		}
 	}
 }
