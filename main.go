@@ -439,19 +439,40 @@ func enc(src string, tr Track) error {
 	w.Close()
 
 	encodedPictureData := base64.StdEncoding.EncodeToString(pictureData.Bytes())
+	_ = encodedPictureData
+
+	foundComments := false
+
+	comments := [][2]string{}
+	comments = append(comments, [2]string{"TITLE", tr.Title})
+	comments = append(comments, [2]string{"ALBUM", tr.Album.Title})
+	comments = append(comments, [2]string{"TRACKNUMBER", tr.TrackNumber.String()})
+	comments = append(comments, [2]string{"TRACKTOTAL", tr.Album.NumberOfTracks.String()})
+	comments = append(comments, [2]string{"ARTIST", tr.Artist.Name})
+	comments = append(comments, [2]string{"ALBUMARTIST", tr.Album.Artist.Name})
+	comments = append(comments, [2]string{"COPYRIGHT", tr.Copyright})
+	comments = append(comments, [2]string{"METADATA_BLOCK_PICTURE", encodedPictureData})
 
 	// Add custom vorbis comment.
 	for _, block := range stream.Blocks {
 		if comment, ok := block.Body.(*meta.VorbisComment); ok {
-			comment.Tags = append(comment.Tags, [2]string{"TITLE", tr.Title})
-			comment.Tags = append(comment.Tags, [2]string{"ALBUM", tr.Album.Title})
-			comment.Tags = append(comment.Tags, [2]string{"TRACKNUMBER", tr.TrackNumber.String()})
-			comment.Tags = append(comment.Tags, [2]string{"TRACKTOTAL", tr.Album.NumberOfTracks.String()})
-			comment.Tags = append(comment.Tags, [2]string{"ARTIST", tr.Artist.Name})
-			comment.Tags = append(comment.Tags, [2]string{"ALBUMARTIST", tr.Album.Artist.Name})
-			comment.Tags = append(comment.Tags, [2]string{"COPYRIGHT", tr.Copyright})
-			comment.Tags = append(comment.Tags, [2]string{"METADATA_BLOCK_PICTURE", encodedPictureData})
+			foundComments = true
+			comment.Tags = append(comment.Tags, comments...)
 		}
+	}
+
+	if foundComments == false {
+		block := new(meta.Block)
+		block.IsLast = true
+		block.Type = meta.Type(4)
+		block.Length = 0
+
+		comment := new(meta.VorbisComment)
+		block.Body = comment
+		comment.Vendor = "Lavf57.71.100"
+		comment.Tags = append(comment.Tags, comments...)
+
+		stream.Blocks = append(stream.Blocks, block)
 	}
 
 	// Encode FLAC file.
@@ -496,8 +517,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
-	// spew.Dump(t)
 
 	for _, id := range ids {
 		var albums []Album
