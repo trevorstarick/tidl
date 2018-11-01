@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -16,6 +17,7 @@ import (
 	"strings"
 
 	// TODO(ts): look at replacing bitio
+
 	"github.com/icza/bitio"
 	"github.com/mewkiz/flac"
 	"github.com/mewkiz/flac/meta"
@@ -150,6 +152,10 @@ func (t *Tidal) GetAlbum(id string) (Album, error) {
 
 	err := t.get("albums/"+id, &url.Values{}, &s)
 	t.albumMap[id] = s
+
+	if s.Duration == 0 {
+		return s, errors.New("album unavailable")
+	}
 
 	return s, err
 }
@@ -293,10 +299,14 @@ func (al *Album) GetArt() ([]byte, error) {
 	return ioutil.ReadAll(res.Body)
 }
 
-func (t *Tidal) DownloadAlbum(al Album) {
+func (t *Tidal) DownloadAlbum(al Album) error {
 	tracks, err := t.GetAlbumTracks(al.ID.String())
 	if err != nil {
-		panic(err)
+		return err
+	}
+
+	if al.Duration == 0.0 {
+		return errors.New("album unavailable")
 	}
 
 	dirs := clean(al.Artists[0].Name) + "/" + clean(al.Title)
@@ -304,17 +314,17 @@ func (t *Tidal) DownloadAlbum(al Album) {
 
 	metadata, err := json.MarshalIndent(al, "", "\t")
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	err = ioutil.WriteFile(dirs+"/meta.json", metadata, 0777)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	body, err := al.GetArt()
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	al.artBody = body
@@ -322,16 +332,20 @@ func (t *Tidal) DownloadAlbum(al Album) {
 
 	err = ioutil.WriteFile(dirs+"/album.jpg", body, 0777)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	for i, track := range tracks {
 		fmt.Printf("\t [%v/%v] %v\n", i+1, len(tracks), track.Title)
-		t.DownloadTrack(track)
+		if err := t.DownloadTrack(track); err != nil {
+			return err
+		}
 	}
+
+	return nil
 }
 
-func (t *Tidal) DownloadTrack(tr Track) {
+func (t *Tidal) DownloadTrack(tr Track) error {
 	// TODO(ts): improve ID3
 	al := t.albumMap[tr.Album.ID.String()]
 	tr.Album = al
@@ -341,19 +355,19 @@ func (t *Tidal) DownloadTrack(tr Track) {
 
 	u, err := t.GetStreamURL(tr.ID.String(), "LOSSLESS")
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	if u != "" {
 		path := dirs + "/" + clean(tr.Artist.Name) + " - " + clean(tr.Title)
 		f, err := os.Create(path)
 		if err != nil {
-			panic(err)
+			return err
 		}
 
 		res, err := http.Get(u)
 		if err != nil {
-			panic(err)
+			return err
 		}
 
 		io.Copy(f, res.Body)
@@ -362,10 +376,12 @@ func (t *Tidal) DownloadTrack(tr Track) {
 
 		err = enc(dirs, tr)
 		if err != nil {
-			panic(err)
+			return err
 		}
 		os.Remove(path)
 	}
+
+	return nil
 }
 
 // helper function to generate a uuid

@@ -15,15 +15,37 @@ var username, password string
 var onlyAlbums = flag.Bool("albums", false, "only download albums")
 var onlyEPs = flag.Bool("eps", false, "only download eps and singles")
 
+var altUsername = flag.String("username", "", "optional username when not set in build process")
+var altPassword = flag.String("password", "", "optional password when not set in build process")
+
 func main() {
 	var err error
 
 	flag.Parse()
 
+	// TODO(TS): look into input prompt
+	if username == "" {
+		username = *altUsername
+		password = *altPassword
+	} else if password == "" {
+		password = *altPassword
+	}
+
+	if username == "" {
+		fmt.Println("missing username")
+		os.Exit(1)
+	}
+
+	if password == "" {
+		fmt.Println("missing password")
+		os.Exit(1)
+	}
+
 	// TODO(ts): handle output better
 	// TODO(ts): handle no input
 	if len(flag.Args()) == 0 {
-		return
+		fmt.Println("missing list or file, of ids")
+		os.Exit(2)
 	}
 
 	var ids []string
@@ -31,7 +53,8 @@ func main() {
 	if _, err = os.Stat(flag.Args()[0]); !os.IsNotExist(err) {
 		f, err := os.Open(flag.Args()[0])
 		if err != nil {
-			panic(err)
+			fmt.Println("can't open file")
+			os.Exit(3)
 		}
 
 		buffer := bufio.NewScanner(f)
@@ -44,7 +67,8 @@ func main() {
 
 	t, err := tidl.New(username, password)
 	if err != nil {
-		panic(err)
+		fmt.Println("can't login to tidl right now")
+		os.Exit(4)
 	}
 
 	for _, id := range ids {
@@ -58,7 +82,8 @@ func main() {
 		// TODO(ts): support fetching of artist info
 		artist, err := t.GetArtist(id)
 		if err != nil {
-			panic(err)
+			fmt.Println("can't get artist info")
+			os.Exit(5)
 		}
 
 		if artist.ID.String() != "" {
@@ -68,7 +93,8 @@ func main() {
 				fmt.Println("Only fetching Albums")
 				lbums, err := t.GetArtistAlbums(id, 0)
 				if err != nil {
-					panic(err)
+					fmt.Println("can't get artist albums")
+					os.Exit(5)
 				}
 
 				albums = append(albums, lbums...)
@@ -76,7 +102,8 @@ func main() {
 				fmt.Println("Only fetching EPs & Singles")
 				lbums, err := t.GetArtistEP(id, 0)
 				if err != nil {
-					panic(err)
+					fmt.Println("can't get artist eps")
+					os.Exit(5)
 				}
 
 				albums = append(albums, lbums...)
@@ -84,14 +111,16 @@ func main() {
 				fmt.Println("Fetching Albums, EPs & Singles")
 				lbums, err := t.GetArtistAlbums(id, 0)
 				if err != nil {
-					panic(err)
+					fmt.Println("can't get artist albums")
+					os.Exit(5)
 				}
 
 				albums = append(albums, lbums...)
 
 				lbums, err = t.GetArtistEP(id, 0)
 				if err != nil {
-					panic(err)
+					fmt.Println("can't get artist eps")
+					os.Exit(5)
 				}
 
 				albums = append(albums, lbums...)
@@ -99,7 +128,8 @@ func main() {
 		} else {
 			album, err := t.GetAlbum(id)
 			if err != nil {
-				panic(err)
+				fmt.Println("can't get album info")
+				os.Exit(6)
 			}
 
 			albums = []tidl.Album{album}
@@ -127,12 +157,17 @@ func main() {
 
 		albums = make([]tidl.Album, 0, len(albumMap))
 		for _, album := range albumMap {
-			albums = append(albums, album)
+			if album.Duration > 0 {
+				albums = append(albums, album)
+			}
 		}
 
 		for _, album := range albums {
 			fmt.Printf("[%v] %v\n", album.ID.String(), album.Title)
-			t.DownloadAlbum(album)
+			if err := t.DownloadAlbum(album); err != nil {
+				fmt.Println("can't download album")
+				os.Exit(8)
+			}
 			// 	tracks, err := t.GetAlbumTracks(album.ID.String())
 			// 	if err != nil {
 			// 		panic(err)
