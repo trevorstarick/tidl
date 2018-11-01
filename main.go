@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -37,6 +38,15 @@ var username, password string
 var cookieJar, _ = cookiejar.New(nil)
 var c = &http.Client{
 	Jar: cookieJar,
+}
+
+var onlyAlbums = flag.Bool("albums", false, "only download albums")
+var onlyEPs = flag.Bool("eps", false, "only download eps and singles")
+
+type TidalError struct {
+	Status      int
+	SubStatus   int
+	UserMessage string
 }
 
 // Tidal api struct
@@ -458,16 +468,18 @@ func enc(src string, tr Track) error {
 func main() {
 	var err error
 
+	flag.Parse()
+
 	// TODO(ts): handle output better
 	// TODO(ts): handle no input
-	if len(os.Args) == 1 {
+	if len(flag.Args()) == 0 {
 		return
 	}
 
 	var ids []string
 
-	if _, err = os.Stat(os.Args[1]); !os.IsNotExist(err) {
-		f, err := os.Open(os.Args[1])
+	if _, err = os.Stat(flag.Args()[0]); !os.IsNotExist(err) {
+		f, err := os.Open(flag.Args()[0])
 		if err != nil {
 			panic(err)
 		}
@@ -477,7 +489,7 @@ func main() {
 			ids = append(ids, buffer.Text())
 		}
 	} else {
-		ids = os.Args[1:]
+		ids = flag.Args()
 	}
 
 	t, err := New(username, password)
@@ -489,6 +501,11 @@ func main() {
 
 	for _, id := range ids {
 		var albums []Album
+
+		if id[0] == 'h' {
+			id = strings.Split(id, "album/")[1]
+		}
+
 		// TODO(ts): support fetching of EP/Singles as well as flags to disable
 		// TODO(ts): support fetching of artist info
 		artist, err := t.GetArtist(id)
@@ -498,19 +515,39 @@ func main() {
 
 		if artist.ID.String() != "" {
 			fmt.Printf("Downloading %v (%v)...\n", artist.Name, artist.ID)
-			lbums, err := t.GetArtistAlbums(id, 0)
-			if err != nil {
-				panic(err)
+
+			if *onlyAlbums == true {
+				fmt.Println("Only fetching Albums")
+				lbums, err := t.GetArtistAlbums(id, 0)
+				if err != nil {
+					panic(err)
+				}
+
+				albums = append(albums, lbums...)
+			} else if *onlyEPs {
+				fmt.Println("Only fetching EPs & Singles")
+				lbums, err := t.GetArtistEP(id, 0)
+				if err != nil {
+					panic(err)
+				}
+
+				albums = append(albums, lbums...)
+			} else {
+				fmt.Println("Fetching Albums, EPs & Singles")
+				lbums, err := t.GetArtistAlbums(id, 0)
+				if err != nil {
+					panic(err)
+				}
+
+				albums = append(albums, lbums...)
+
+				lbums, err = t.GetArtistEP(id, 0)
+				if err != nil {
+					panic(err)
+				}
+
+				albums = append(albums, lbums...)
 			}
-
-			albums = append(albums, lbums...)
-
-			lbums, err = t.GetArtistEP(id, 0)
-			if err != nil {
-				panic(err)
-			}
-
-			albums = append(albums, lbums...)
 		} else {
 			album, err := t.GetAlbum(id)
 			if err != nil {
