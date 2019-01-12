@@ -106,7 +106,7 @@ type Search struct {
 }
 
 func (t *Tidal) get(dest string, query *url.Values, s interface{}) error {
-	// log.Println(baseurl + dest)
+	// log.Println(baseurl+dest+"?"+query.Encode(), t.SessionID)
 	req, err := http.NewRequest("GET", baseurl+dest, nil)
 	if err != nil {
 		return err
@@ -132,6 +132,62 @@ func (t *Tidal) CheckSession() (bool, error) {
 	return true, err
 }
 
+func (t *Tidal) GetFavoriteAlbums() ([]string, error) {
+	var out struct {
+		Limit              int `json:"limit"`
+		Offset             int `json:"offset"`
+		TotalNumberOfItems int `json:"totalNumberOfItems"`
+		Items              []struct {
+			Created string `json:"created"`
+			Item    struct {
+				ID                   int         `json:"id"`
+				Title                string      `json:"title"`
+				Duration             int         `json:"duration"`
+				StreamReady          bool        `json:"streamReady"`
+				StreamStartDate      string      `json:"streamStartDate"`
+				AllowStreaming       bool        `json:"allowStreaming"`
+				PremiumStreamingOnly bool        `json:"premiumStreamingOnly"`
+				NumberOfTracks       int         `json:"numberOfTracks"`
+				NumberOfVideos       int         `json:"numberOfVideos"`
+				NumberOfVolumes      int         `json:"numberOfVolumes"`
+				ReleaseDate          string      `json:"releaseDate"`
+				Copyright            string      `json:"copyright"`
+				Type                 string      `json:"type"`
+				Version              interface{} `json:"version"`
+				URL                  string      `json:"url"`
+				Cover                string      `json:"cover"`
+				VideoCover           interface{} `json:"videoCover"`
+				Explicit             bool        `json:"explicit"`
+				Upc                  string      `json:"upc"`
+				Popularity           int         `json:"popularity"`
+				AudioQuality         string      `json:"audioQuality"`
+				SurroundTypes        interface{} `json:"surroundTypes"`
+				Artist               struct {
+					ID   int    `json:"id"`
+					Name string `json:"name"`
+					Type string `json:"type"`
+				} `json:"artist"`
+				Artists []struct {
+					ID   int    `json:"id"`
+					Name string `json:"name"`
+					Type string `json:"type"`
+				} `json:"artists"`
+			} `json:"item"`
+		} `json:"items"`
+	}
+
+	err := t.get(fmt.Sprintf("users/%s/favorites/albums", t.UserID), &url.Values{
+		"limit": {"500"},
+	}, &out)
+	var ids []string
+
+	for _, id := range out.Items {
+		ids = append(ids, strconv.Itoa(id.Item.ID))
+	}
+
+	return ids, err
+}
+
 // GetStreamURL func
 func (t *Tidal) GetStreamURL(id, q string) (string, error) {
 	var s struct {
@@ -140,6 +196,9 @@ func (t *Tidal) GetStreamURL(id, q string) (string, error) {
 	err := t.get("tracks/"+id+"/streamUrl", &url.Values{
 		"soundQuality": {q},
 	}, &s)
+
+	// fmt.Println(s.URL)
+
 	return s.URL, err
 }
 
@@ -360,6 +419,12 @@ func (t *Tidal) DownloadTrack(tr Track) error {
 
 	if u != "" {
 		path := dirs + "/" + clean(tr.Artist.Name) + " - " + clean(tr.Title)
+
+		_, err := os.Stat("./" + path + ".flac")
+		if !os.IsNotExist(err) {
+			return nil
+		}
+
 		f, err := os.Create(path)
 		if err != nil {
 			return err

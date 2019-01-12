@@ -41,14 +41,23 @@ func main() {
 		os.Exit(1)
 	}
 
-	// TODO(ts): handle output better
-	// TODO(ts): handle no input
-	if len(flag.Args()) == 0 {
-		fmt.Println("missing list or file, of ids")
-		os.Exit(2)
+	t, err := tidl.New(username, password)
+	if err != nil {
+		fmt.Println("can't login to tidl right now")
+		os.Exit(4)
 	}
 
 	var ids []string
+
+	// TODO(ts): handle output better
+	// TODO(ts): handle no input
+	if len(flag.Args()) == 0 {
+		ids, _ = t.GetFavoriteAlbums()
+		for _, id := range ids {
+			fmt.Println(id)
+		}
+		os.Exit(2)
+	}
 
 	if _, err = os.Stat(flag.Args()[0]); !os.IsNotExist(err) {
 		f, err := os.Open(flag.Args()[0])
@@ -63,12 +72,6 @@ func main() {
 		}
 	} else {
 		ids = flag.Args()
-	}
-
-	t, err := tidl.New(username, password)
-	if err != nil {
-		fmt.Println("can't login to tidl right now")
-		os.Exit(4)
 	}
 
 	for _, id := range ids {
@@ -128,7 +131,7 @@ func main() {
 		} else {
 			album, err := t.GetAlbum(id)
 			if err != nil {
-				fmt.Println("can't get album info")
+				fmt.Println("can't get album info: " + id)
 				os.Exit(6)
 			}
 
@@ -163,7 +166,7 @@ func main() {
 		}
 
 		for _, album := range albums {
-			fmt.Printf("[%v] %v\n", album.ID.String(), album.Title)
+			fmt.Printf("[%v] %v - %v\n", album.ID.String(), album.Artist.Name, album.Title)
 			if err := t.DownloadAlbum(album); err != nil {
 				fmt.Println("can't download album")
 				os.Exit(8)
