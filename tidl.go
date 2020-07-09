@@ -25,7 +25,6 @@ import (
 
 const baseurl = "https://api.tidalhifi.com/v1/"
 const clientVersion = "1.9.1"
-const token = "kgsOOmYk3zShYrNP"
 
 const (
 	AQ_LOSSLESS int = iota
@@ -463,15 +462,22 @@ func New(user, pass string) (*Tidal, error) {
 	query := url.Values{
 		"username":        {user},
 		"password":        {pass},
-		"token":           {token},
-		"clientUniqueKey": {uuid()},
-		"clientVersion":   {clientVersion},
 	}
-	res, err := http.PostForm(baseurl+"login/username", query)
+
+	req, err := http.NewRequest("POST", baseurl + "login/username", strings.NewReader(query.Encode()))
+	
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Add("X-Tidal-Token", "wc8j_yBJd20zOmx0")
+
+	client := &http.Client{}
+	
+	res, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	if res.StatusCode != http.StatusOK {
+		msg, _ := ioutil.ReadAll(res.Body)
+		fmt.Println(string(msg))
 		return nil, fmt.Errorf("unexpected error code from tidal: %d", res.StatusCode)
 	}
 
