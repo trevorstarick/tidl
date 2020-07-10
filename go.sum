@@ -2,6 +2,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/go-audio/audio v0.0.0-20180206231410-b697a35b5608/go.mod h1:6uAu0+H2lHkwdGsAY+j2wHPNPpPoeg5AaEFh9FlA+Zs=
 github.com/go-audio/wav v0.0.0-20180801233548-87c13ac40f03/go.mod h1:7Yks5lSvciOdNmfv+bndELyGXQSTxT3yVA3dsbk/sCE=
+github.com/h2non/filetype v1.1.0 h1:Or/gjocJrJRNK/Cri/TDEKFjAR+cfG6eK65NGYB6gBA=
+github.com/h2non/filetype v1.1.0/go.mod h1:319b3zT68BvV+WRj7cwy856M2ehB3HqNOt6sy1HndBY=
 github.com/icza/bitio v0.0.0-20180221120200-b25b30b42508 h1:2LdkN1icT8cEFyB95fUbPE0TmQL9ZOjUv9MNJ1kg3XE=
 github.com/icza/bitio v0.0.0-20180221120200-b25b30b42508/go.mod h1:1+iKpsBoI5fsqBTrjxjM81vidVQcxXCmDrM9vc6EU2w=
 github.com/icza/mighty v0.0.0-20180222163138-6304d21ca645/go.mod h1:xQig96I1VNBDIWGCdTt54nHt6EeI639SmHycLYL7FkA=
@@ -13,3 +15,5 @@ github.com/mewkiz/flac v1.0.5/go.mod h1:EHZNU32dMF6alpurYyKHDLYpW1lYpBZ5WrXi/VuN
 github.com/mewkiz/pkg v0.0.0-20170428133157-c19a6f9fa6f8 h1:XD0Q2+yCxlxdphDVQzvXARXSc6c75BDobJErKnsqkdw=
 github.com/mewkiz/pkg v0.0.0-20170428133157-c19a6f9fa6f8/go.mod h1:bhmdGJSMX5WCIBFmk27tBnUvBJm5WxXmarBV41qvbNI=
 github.com/pkg/errors v0.8.0/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
+golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e h1:EHBhcS0mlXEAVwNyO2dLfjToGsyY4j24pTs2ScHnX7s=
+golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e/go.mod h1:tRJNPiyCQ0inRvYxbN9jk5I+vvW/OXSQhTDSoE431IQ=
