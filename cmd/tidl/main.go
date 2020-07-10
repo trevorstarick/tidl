@@ -56,6 +56,7 @@ func main() {
 		for _, id := range ids {
 			fmt.Println(id)
 		}
+
 		os.Exit(2)
 	}
 
@@ -75,11 +76,35 @@ func main() {
 	}
 
 	for _, id := range ids {
-		var albums []tidl.Album
+		splitIDs := strings.Split(strings.TrimSuffix(id, "/"), "/")
+		id = splitIDs[len(splitIDs) - 1]
 
-		if id[0] == 'h' {
-			id = strings.Split(id, "album/")[1]
+		id = strings.Split(id, "#")[0]
+		id = strings.Split(id, "?")[0]
+
+		if strings.Contains(id, "-") {
+			p, err := t.GetPlaylist(id)
+			if err != nil {
+				panic(err)
+			}
+
+			p.Tracks, err = t.GetPlaylistTracks(id)
+			if err != nil {
+				panic(err)
+			}
+
+			fmt.Printf("[%v] %v \n", p.ID, p.Title)
+
+			err = t.DownloadPlaylist(p)
+			if err != nil {
+				panic(err)
+			}
+			
+			continue
 		}
+		
+
+		var albums []tidl.Album
 
 		// TODO(ts): support fetching of EP/Singles as well as flags to disable
 		// TODO(ts): support fetching of artist info

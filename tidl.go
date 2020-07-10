@@ -7,12 +7,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
 	"os"
+	"path/filepath"
+	"time"
 	"strconv"
 	"strings"
 
@@ -21,6 +22,13 @@ import (
 	"github.com/icza/bitio"
 	"github.com/mewkiz/flac"
 	"github.com/mewkiz/flac/meta"
+
+	"github.com/h2non/filetype"
+	"github.com/h2non/filetype/types"
+
+	// "github.com/davecgh/go-spew/spew"
+	"context"
+	"golang.org/x/time/rate"
 )
 
 const baseurl = "https://api.tidalhifi.com/v1/"
@@ -30,6 +38,24 @@ const (
 	AQ_LOSSLESS int = iota
 	AQ_HI_RES
 )
+
+var limiter *rate.Limiter
+
+func init() {
+	limiter = rate.NewLimiter(3, 10)
+}
+
+type cTime time.Time
+
+func (ct *cTime) UnmarshalJSON(b []byte) error {
+	if string(b) == "null" {
+		return nil
+	}
+	
+	t, err := time.Parse("2006-01-02T15:04:05-0700", strings.Replace(string(b), `"`, "", -1))
+	*ct = cTime(t)
+	return err
+}
 
 var cookieJar, _ = cookiejar.New(nil)
 var c = &http.Client{
@@ -75,11 +101,49 @@ type Album struct {
 	artBody              []byte
 }
 
+type Playlist struct {
+	Creator struct {
+		ID int
+	}
+
+	ID string
+
+	Description string
+	Created cTime
+	URL string
+	SquareImage string
+	LastItemAddedAt cTime
+	Image string
+	Popularity float64
+	LastUpdated cTime
+	NumberOfTracks int
+	Duration int
+	Type string
+	PublicPlaylist bool
+	Title string
+
+	Tracks []Track `json:"-"`
+
+	artBody []byte
+}
+
+func (p *Playlist) GetArt() ([]byte, error) {
+	u := "https://resources.tidal.com/images/" + strings.Replace(p.SquareImage, "-", "/", -1) + "/320x320.jpg"
+	res, err := http.Get(u)
+	if err != nil {
+		return nil, err
+	}
+
+	defer res.Body.Close()
+	return ioutil.ReadAll(res.Body)
+}
+
 // Track struct
 type Track struct {
 	Artists      []Artist    `json:"artists"`
 	Artist       Artist      `json:"artist"`
 	Album        Album       `json:"album"`
+	Playlist 	 Playlist	 `json:"-"`
 	Title        string      `json:"title"`
 	ID           json.Number `json:"id"`
 	Explicit     bool        `json:"explicit"`
@@ -105,7 +169,8 @@ type Search struct {
 }
 
 func (t *Tidal) get(dest string, query *url.Values, s interface{}) error {
-	// log.Println(baseurl+dest+"?"+query.Encode(), t.SessionID)
+	err := limiter.Wait(context.Background())
+	// fmt.Println(baseurl+dest+"?"+query.Encode(), t.SessionID)
 	req, err := http.NewRequest("GET", baseurl+dest, nil)
 	if err != nil {
 		return err
@@ -117,6 +182,10 @@ func (t *Tidal) get(dest string, query *url.Values, s interface{}) error {
 	if err != nil {
 		return err
 	}
+
+	// if res.StatusCode := 200 {
+	// 	fmt.Println(res.StatusCode)
+	// }
 
 	defer res.Body.Close()
 	return json.NewDecoder(res.Body).Decode(&s)
@@ -196,8 +265,6 @@ func (t *Tidal) GetStreamURL(id, q string) (string, error) {
 		"soundQuality": {q},
 	}, &s)
 
-	// fmt.Println(s.URL)
-
 	return s.URL, err
 }
 
@@ -209,6 +276,8 @@ func (t *Tidal) GetAlbum(id string) (Album, error) {
 	}
 
 	err := t.get("albums/"+id, &url.Values{}, &s)
+	_, err = s.GetArt()
+
 	t.albumMap[id] = s
 
 	if s.Duration == 0 {
@@ -226,12 +295,25 @@ func (t *Tidal) GetAlbumTracks(id string) ([]Track, error) {
 	return s.Items, t.get("albums/"+id+"/tracks", &url.Values{}, &s)
 }
 
+// GetPlaylist func 
+func (t *Tidal) GetPlaylist(id string) (Playlist, error) {
+	var s Playlist
+
+	s.ID = id
+
+	return s, t.get("playlists/"+id, &url.Values{}, &s)
+}
+
 // GetPlaylistTracks func
 func (t *Tidal) GetPlaylistTracks(id string) ([]Track, error) {
 	var s struct {
-		Items []Track `json:"items"`
+		Items []Track
 	}
-	return s.Items, t.get("playlists/"+id+"/tracks", &url.Values{}, &s)
+
+	values := &url.Values{}
+	values.Add("limit", "500")
+
+	return s.Items, t.get("playlists/"+id+"/tracks", values, &s) 
 }
 
 // SearchTracks func
@@ -354,7 +436,8 @@ func (al *Album) GetArt() ([]byte, error) {
 	}
 
 	defer res.Body.Close()
-	return ioutil.ReadAll(res.Body)
+	al.artBody, err = ioutil.ReadAll(res.Body)
+	return al.artBody, err
 }
 
 func (t *Tidal) DownloadAlbum(al Album) error {
@@ -395,7 +478,7 @@ func (t *Tidal) DownloadAlbum(al Album) error {
 
 	for i, track := range tracks {
 		fmt.Printf("\t [%v/%v] %v\n", i+1, len(tracks), track.Title)
-		if err := t.DownloadTrack(track); err != nil {
+		if err := t.DownloadTrack(dirs, track); err != nil {
 			return err
 		}
 	}
@@ -403,47 +486,120 @@ func (t *Tidal) DownloadAlbum(al Album) error {
 	return nil
 }
 
-func (t *Tidal) DownloadTrack(tr Track) error {
-	// TODO(ts): improve ID3
-	al := t.albumMap[tr.Album.ID.String()]
-	tr.Album = al
+func (t *Tidal) DownloadPlaylist(p Playlist) error {
+	if p.Duration == 0 {
+		return errors.New("playlist unavailable")
+	}
 
-	dirs := clean(al.Artist.Name) + "/" + clean(al.Title)
-	os.MkdirAll(dirs, os.ModePerm)
+	if len(p.Tracks) == 0 {
+		var err error
+		p.Tracks, err = t.GetPlaylistTracks(p.ID)
+		if err != nil {
+			return err
+		}
+	}
 
-	u, err := t.GetStreamURL(tr.ID.String(), "LOSSLESS")
+	root := "Playlists/" + clean(p.Title)
+	os.MkdirAll(root, os.ModePerm)
+
+	metadata, err := json.MarshalIndent(p, "", "\t")
 	if err != nil {
 		return err
 	}
 
-	if u != "" {
-		path := dirs + "/" + clean(tr.Artist.Name) + " - " + clean(tr.Title)
-
-		_, err := os.Stat("./" + path + ".flac")
-		if !os.IsNotExist(err) {
-			return nil
-		}
-
-		f, err := os.Create(path)
-		if err != nil {
-			return err
-		}
-
-		res, err := http.Get(u)
-		if err != nil {
-			return err
-		}
-
-		io.Copy(f, res.Body)
-		res.Body.Close()
-		f.Close()
-
-		err = enc(dirs, tr)
-		if err != nil {
-			return err
-		}
-		os.Remove(path)
+	err = ioutil.WriteFile(root+"/meta.json", metadata, 0777)
+	if err != nil {
+		return err
 	}
+
+	body, err := p.GetArt()
+	if err != nil {
+		return err
+	}
+
+	p.artBody = body
+
+	err = ioutil.WriteFile(root+"/album.jpg", body, 0777)
+	if err != nil {
+		return err
+	}
+
+	for i, tr := range p.Tracks {
+		fmt.Printf("\t [%v/%v] %v - %v\n", i+1, len(p.Tracks), tr.Artist.Name, tr.Title)
+		// TODO(ts): improve ID3
+
+		tr.Playlist = p
+		tr.TrackNumber = json.Number(strconv.Itoa(i+1))
+
+		if tr.DoExists(root) {
+			continue
+		}
+
+		t.GetAlbum(string(tr.Album.ID))
+		t.DownloadTrack(root, tr)
+	}
+
+	return nil
+}
+
+func (tr Track) GetPath(root string) string {
+	return root + "/" + clean(tr.Artist.Name) + " - " + clean(tr.Title)
+}
+
+func (tr Track) DoExists(root string) bool {
+	path := tr.GetPath(root)
+	matches, err := filepath.Glob("./" + path + ".*")
+	if err != nil {
+		return false
+	}
+
+	return (len(matches) > 0)
+}
+
+func (t Tidal) DownloadTrack(root string, tr Track) error {
+	if tr.DoExists(root) {
+		return nil
+	}
+
+	// TODO(ts): improve ID3
+	al := t.albumMap[tr.Album.ID.String()]
+	tr.Album = al
+
+	os.MkdirAll(root, os.ModePerm)
+
+	path := tr.GetPath(root)
+	
+	u, err := t.GetStreamURL(tr.ID.String(), "LOSSLESS")
+	if err != nil {
+		panic(err)
+	}
+
+	if u == "" {
+		return nil
+	}
+
+	f, err := os.Create(path)
+	if err != nil {
+		panic(err)
+	}
+
+	res, err := http.Get(u)
+	if err != nil {
+		panic(err)
+	}
+
+	buf, _ := ioutil.ReadAll(res.Body)
+	res.Body.Close()
+	
+	f.Write(buf)
+	f.Close()
+
+	kind, _ := filetype.Match(buf)
+	err = enc(root, tr, kind)
+	if err != nil {
+		panic(err)
+	}
+	os.Remove(path)
 
 	return nil
 }
@@ -491,12 +647,13 @@ func clean(s string) string {
 	return strings.Replace(s, "/", "\u2215", -1)
 }
 
-func enc(src string, tr Track) error {
+func encFlac(src string, tr Track) error {
 	// https://wiki.hydrogenaud.io/index.php?title=Tag_Mapping#Titles
 	// Decode FLAC file.
 	path := src + "/" + clean(tr.Artist.Name) + " - " + clean(tr.Title)
 	stream, err := flac.ParseFile(path)
 	if err != nil {
+		// isn't a FLAC file
 		return err
 	}
 
@@ -518,19 +675,30 @@ func enc(src string, tr Track) error {
 	w.Close()
 
 	encodedPictureData := base64.StdEncoding.EncodeToString(pictureData.Bytes())
-	_ = encodedPictureData
-
 	foundComments := false
+	extraComments := ""
+
+	albumName := tr.Album.Title
+	trackTotal := tr.Album.NumberOfTracks.String()
+
+	if tr.Playlist.ID != "" {
+		extraComments += fmt.Sprintf("Original Album Title: %v\n", albumName)
+		albumName = tr.Playlist.Title
+		trackTotal = strconv.Itoa(tr.Playlist.NumberOfTracks)
+	}
 
 	comments := [][2]string{}
 	comments = append(comments, [2]string{"TITLE", tr.Title})
-	comments = append(comments, [2]string{"ALBUM", tr.Album.Title})
+	comments = append(comments, [2]string{"ALBUM", albumName})
 	comments = append(comments, [2]string{"TRACKNUMBER", tr.TrackNumber.String()})
-	comments = append(comments, [2]string{"TRACKTOTAL", tr.Album.NumberOfTracks.String()})
+	comments = append(comments, [2]string{"TRACKTOTAL", trackTotal})
+
 	comments = append(comments, [2]string{"ARTIST", tr.Artist.Name})
 	comments = append(comments, [2]string{"ALBUMARTIST", tr.Album.Artist.Name})
+	
 	comments = append(comments, [2]string{"COPYRIGHT", tr.Copyright})
 	comments = append(comments, [2]string{"METADATA_BLOCK_PICTURE", encodedPictureData})
+	comments = append(comments, [2]string{"COMMENTS", extraComments})
 
 	// Add custom vorbis comment.
 	for _, block := range stream.Blocks {
@@ -562,5 +730,25 @@ func enc(src string, tr Track) error {
 	err = flac.Encode(f, stream)
 	f.Close()
 	stream.Close()
-	return err
+
+	return nil
+}
+
+func encMp4(src string, tr Track) error {
+	path := src + "/" + clean(tr.Artist.Name) + " - " + clean(tr.Title)
+	return os.Rename(path, path + ".mp4")
+
+	return nil
+}
+
+func enc(src string, tr Track, kind types.Type) error {
+	switch kind.MIME.Value {
+	case "audio/x-flac":
+		return encFlac(src, tr)
+	case "audio/mp4", "video/mp4":
+		return encMp4(src, tr)
+	default:
+		fmt.Println(kind.MIME.Value)
+		return nil
+	}
 }
